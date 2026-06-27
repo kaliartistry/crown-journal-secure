@@ -124,6 +124,7 @@
     var listenToggle = listenPanel.querySelector("[data-listen-toggle]");
     var listenStop = listenPanel.querySelector("[data-listen-stop]");
     var listenStatus = listenPanel.querySelector("[data-listen-status]");
+    var listenSegments = listenPanel.querySelector("[data-listen-segments]");
     var audioSources = (listenPanel.getAttribute("data-audio-playlist") || "")
       .split(",")
       .map(function (source) {
@@ -139,6 +140,7 @@
       audio: null,
       utterance: null
     };
+    var segmentButtons = [];
 
     var setListenStatus = function (label) {
       if (listenStatus) {
@@ -163,6 +165,59 @@
         listenToggle.setAttribute("aria-pressed", "false");
         listenStop.disabled = true;
       }
+    };
+
+    var setActiveSegment = function (activeIndex) {
+      segmentButtons.forEach(function (button, index) {
+        var isActive = index === activeIndex;
+        button.classList.toggle("is-active", isActive);
+        if (isActive) {
+          button.setAttribute("aria-current", "true");
+        } else {
+          button.removeAttribute("aria-current");
+        }
+      });
+    };
+
+    var renderAudioSegments = function () {
+      if (!listenSegments || !audioSources.length) {
+        return;
+      }
+
+      listenSegments.textContent = "";
+      var label = document.createElement("span");
+      label.className = "listen-segments-label";
+      label.textContent = "Parts";
+
+      var list = document.createElement("div");
+      list.className = "listen-segment-list";
+
+      audioSources.forEach(function (_source, index) {
+        var button = document.createElement("button");
+        button.className = "listen-segment";
+        button.type = "button";
+        button.textContent = String(index + 1);
+        button.setAttribute("aria-label", "Play part " + (index + 1) + " of " + audioSources.length);
+        button.addEventListener("click", function () {
+          readerState.index = index;
+          readerState.paused = false;
+          readerState.speaking = true;
+          stopCurrentAudio(true);
+          setActiveSegment(index);
+          trackEvent("listen_article_segment_select", {
+            event_category: "audio_reader",
+            mode: "pre_recorded",
+            audio_segment: index + 1,
+            transport_type: "beacon"
+          });
+          playNextAudioSegment();
+        });
+        segmentButtons.push(button);
+        list.appendChild(button);
+      });
+
+      listenSegments.appendChild(label);
+      listenSegments.appendChild(list);
     };
 
     var stopCurrentAudio = function (resetTime) {
@@ -209,6 +264,7 @@
       readerState.paused = false;
       readerState.speaking = false;
       readerState.utterance = null;
+      setActiveSegment(-1);
       setReaderButtons("idle");
       setListenStatus(status || readyStatus);
     };
@@ -245,6 +301,7 @@
       });
 
       setReaderButtons("speaking");
+      setActiveSegment(readerState.index);
       setListenStatus("Listening " + (readerState.index + 1) + " of " + audioSources.length);
       audio.play().catch(function () {
         resetReader("Tap Listen to start audio");
@@ -278,6 +335,8 @@
     };
 
     if (audioSources.length && listenToggle && listenStop) {
+      renderAudioSegments();
+
       listenToggle.addEventListener("click", function () {
         if (readerState.speaking && !readerState.paused) {
           stopCurrentAudio(false);

@@ -219,11 +219,11 @@ h1 {
 }
 
 .listen-panel {
-  width: min(100%, 620px);
+  width: min(100%, 680px);
   margin: 20px 0 0;
   padding: 14px;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
   border: 1px solid rgba(247, 244, 238, 0.2);
@@ -257,6 +257,12 @@ h1 {
   text-transform: uppercase;
 }
 
+.listen-controls {
+  display: grid;
+  gap: 10px;
+  justify-items: end;
+}
+
 .listen-actions {
   display: flex;
   flex-wrap: wrap;
@@ -271,6 +277,56 @@ h1 {
 .listen-actions .button:disabled {
   cursor: not-allowed;
   opacity: 0.44;
+}
+
+.listen-segments {
+  display: grid;
+  gap: 6px;
+  justify-items: end;
+}
+
+.listen-segments-label {
+  color: rgba(247, 244, 238, 0.58);
+  font-size: 0.62rem;
+  font-weight: 900;
+  letter-spacing: 0.13em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.listen-segment-list {
+  display: grid;
+  grid-template-columns: repeat(6, 34px);
+  gap: 6px;
+}
+
+.listen-segment {
+  width: 34px;
+  height: 34px;
+  border: 1px solid rgba(247, 244, 238, 0.24);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(247, 244, 238, 0.78);
+  cursor: pointer;
+  font-size: 0.72rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.listen-segment:hover,
+.listen-segment:focus-visible {
+  border-color: rgba(255, 122, 24, 0.78);
+  color: var(--white);
+}
+
+.listen-segment:focus-visible {
+  outline: 2px solid rgba(255, 122, 24, 0.65);
+  outline-offset: 2px;
+}
+
+.listen-segment.is-active {
+  border-color: var(--orange);
+  background: var(--orange);
+  color: #080808;
 }
 
 .hero-actions,
@@ -684,7 +740,22 @@ article strong {
     align-items: flex-start;
   }
 
+  .listen-controls,
   .listen-actions {
+    width: 100%;
+  }
+
+  .listen-controls,
+  .listen-segments {
+    justify-items: stretch;
+  }
+
+  .listen-segment-list {
+    grid-template-columns: repeat(6, minmax(32px, 1fr));
+    width: 100%;
+  }
+
+  .listen-segment {
     width: 100%;
   }
 
