@@ -119,6 +119,188 @@
     });
   });
 
+  var listenPanel = document.querySelector("[data-audio-reader]");
+  if (listenPanel) {
+    var listenToggle = listenPanel.querySelector("[data-listen-toggle]");
+    var listenStop = listenPanel.querySelector("[data-listen-stop]");
+    var listenStatus = listenPanel.querySelector("[data-listen-status]");
+    var speech = window.speechSynthesis;
+    var readerState = {
+      chunks: [],
+      index: 0,
+      paused: false,
+      speaking: false,
+      utterance: null
+    };
+
+    var setListenStatus = function (label) {
+      if (listenStatus) {
+        listenStatus.textContent = label;
+      }
+    };
+
+    var setReaderButtons = function (mode) {
+      if (!listenToggle || !listenStop) {
+        return;
+      }
+      if (mode === "speaking") {
+        listenToggle.textContent = "Pause";
+        listenToggle.setAttribute("aria-pressed", "true");
+        listenStop.disabled = false;
+      } else if (mode === "paused") {
+        listenToggle.textContent = "Resume";
+        listenToggle.setAttribute("aria-pressed", "true");
+        listenStop.disabled = false;
+      } else {
+        listenToggle.textContent = "Listen";
+        listenToggle.setAttribute("aria-pressed", "false");
+        listenStop.disabled = true;
+      }
+    };
+
+    var cleanText = function (text) {
+      return (text || "").replace(/\s+/g, " ").trim();
+    };
+
+    var getArticleChunks = function () {
+      var chunks = [];
+      var headlineNode = document.querySelector("h1");
+      var dekNode = document.querySelector(".dek");
+      var headline = cleanText(headlineNode && headlineNode.textContent);
+      var dek = cleanText(dekNode && dekNode.textContent);
+      var article = document.querySelector("[data-listen-article]");
+      if (headline) {
+        chunks.push(headline);
+      }
+      if (dek) {
+        chunks.push(dek);
+      }
+      if (!article) {
+        return chunks;
+      }
+      Array.prototype.slice.call(article.children).some(function (child) {
+        if (child.classList && (child.classList.contains("sources") || child.classList.contains("cta-band"))) {
+          return true;
+        }
+        if (child.matches && child.matches("p, .pullquote")) {
+          var text = cleanText(child.textContent);
+          if (text) {
+            chunks.push(text);
+          }
+        }
+        return false;
+      });
+      return chunks;
+    };
+
+    var resetReader = function (status) {
+      readerState.paused = false;
+      readerState.speaking = false;
+      readerState.utterance = null;
+      setReaderButtons("idle");
+      setListenStatus(status || "Browser narration ready");
+    };
+
+    var speakNextChunk = function () {
+      if (!readerState.speaking || readerState.index >= readerState.chunks.length) {
+        trackEvent("listen_article_complete", {
+          event_category: "audio_reader",
+          transport_type: "beacon"
+        });
+        readerState.index = 0;
+        resetReader("Finished");
+        return;
+      }
+
+      var utterance = new SpeechSynthesisUtterance(readerState.chunks[readerState.index]);
+      readerState.utterance = utterance;
+      utterance.rate = 0.94;
+      utterance.pitch = 1;
+      utterance.onend = function () {
+        if (!readerState.speaking) {
+          return;
+        }
+        readerState.index += 1;
+        speakNextChunk();
+      };
+      utterance.onerror = function () {
+        resetReader("Audio reader unavailable in this browser");
+      };
+
+      setReaderButtons("speaking");
+      setListenStatus("Listening " + (readerState.index + 1) + " of " + readerState.chunks.length);
+      speech.speak(utterance);
+    };
+
+    if (!speech || typeof SpeechSynthesisUtterance === "undefined") {
+      setListenStatus("Audio reader unavailable in this browser");
+      if (listenToggle) {
+        listenToggle.disabled = true;
+      }
+    } else if (listenToggle && listenStop) {
+      listenToggle.addEventListener("click", function () {
+        if (readerState.speaking && !readerState.paused) {
+          speech.pause();
+          readerState.paused = true;
+          setReaderButtons("paused");
+          setListenStatus("Paused");
+          trackEvent("listen_article_pause", {
+            event_category: "audio_reader",
+            transport_type: "beacon"
+          });
+          return;
+        }
+
+        if (readerState.speaking && readerState.paused) {
+          speech.resume();
+          readerState.paused = false;
+          setReaderButtons("speaking");
+          setListenStatus("Listening " + (readerState.index + 1) + " of " + readerState.chunks.length);
+          trackEvent("listen_article_resume", {
+            event_category: "audio_reader",
+            transport_type: "beacon"
+          });
+          return;
+        }
+
+        readerState.chunks = getArticleChunks();
+        if (!readerState.chunks.length) {
+          setListenStatus("No article text found");
+          return;
+        }
+        speech.cancel();
+        readerState.index = 0;
+        readerState.paused = false;
+        readerState.speaking = true;
+        trackEvent("listen_article_start", {
+          event_category: "audio_reader",
+          article_chunks: readerState.chunks.length,
+          transport_type: "beacon"
+        });
+        speakNextChunk();
+      });
+
+      listenStop.addEventListener("click", function () {
+        if (!readerState.speaking && !readerState.paused) {
+          return;
+        }
+        readerState.speaking = false;
+        readerState.paused = false;
+        speech.cancel();
+        readerState.index = 0;
+        resetReader("Stopped");
+        trackEvent("listen_article_stop", {
+          event_category: "audio_reader",
+          transport_type: "beacon"
+        });
+      });
+
+      window.addEventListener("beforeunload", function () {
+        speech.cancel();
+      });
+    }
+  }
+
   var progress = document.querySelector(".reading-progress span");
   if (progress) {
     var scrollMilestones = [25, 50, 75, 90];
