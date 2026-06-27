@@ -28,6 +28,3 @@ Tracking note:
 
 Kali Artistry's Zenfolio site already loads GA4 measurement ID `G-VDK00FP55M`. The Crown Journal static site uses that same measurement ID so bridge-page traffic and article traffic land in the same GA4 property.
 
-Editorial credit:
-
-Editorial feedback by Daoud Mansour

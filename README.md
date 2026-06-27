@@ -31,14 +31,6 @@ Then open:
 http://localhost:4173/heavy-is-the-crown-brunson-wanted-the-smoke/
 ```
 
-## Editorial Credit Note
-
-The public article includes this byline-area note:
-
-```text
-Editorial feedback by Daoud Mansour
-```
-
 ## Distribution
 
 Launch assets live in `distribution/`.
