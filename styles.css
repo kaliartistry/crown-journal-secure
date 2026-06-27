@@ -295,9 +295,11 @@ h1 {
 }
 
 .listen-segment-list {
-  display: grid;
-  grid-template-columns: repeat(6, 34px);
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 6px;
+  max-width: 394px;
 }
 
 .listen-segment {
@@ -751,8 +753,10 @@ article strong {
   }
 
   .listen-segment-list {
-    grid-template-columns: repeat(6, minmax(32px, 1fr));
+    display: grid;
+    grid-template-columns: repeat(5, minmax(32px, 1fr));
     width: 100%;
+    max-width: none;
   }
 
   .listen-segment {
