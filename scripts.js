@@ -185,17 +185,7 @@
 
     var getArticleChunks = function () {
       var chunks = [];
-      var headlineNode = document.querySelector("h1");
-      var dekNode = document.querySelector(".dek");
-      var headline = cleanText(headlineNode && headlineNode.textContent);
-      var dek = cleanText(dekNode && dekNode.textContent);
       var article = document.querySelector("[data-listen-article]");
-      if (headline) {
-        chunks.push(headline);
-      }
-      if (dek) {
-        chunks.push(dek);
-      }
       if (!article) {
         return chunks;
       }
@@ -203,7 +193,7 @@
         if (child.classList && (child.classList.contains("sources") || child.classList.contains("cta-band"))) {
           return true;
         }
-        if (child.matches && child.matches("p, .pullquote")) {
+        if (child.matches && child.matches("p")) {
           var text = cleanText(child.textContent);
           if (text) {
             chunks.push(text);
