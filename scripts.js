@@ -1,5 +1,12 @@
 (function () {
-  var canonicalUrl = "https://kaliartistry.github.io/crown-journal-secure/heavy-is-the-crown-brunson-wanted-the-smoke/";
+  var defaultArticleUrl = "https://journal.kaliartistry.com/heavy-is-the-crown-brunson-wanted-the-smoke/";
+  var canonicalLink = document.querySelector("link[rel='canonical']");
+  var canonicalUrl = document.body && document.body.getAttribute("data-share-url")
+    ? document.body.getAttribute("data-share-url")
+    : (canonicalLink && canonicalLink.href ? canonicalLink.href : defaultArticleUrl);
+  var pageType = document.body && document.body.getAttribute("data-page")
+    ? document.body.getAttribute("data-page")
+    : "article";
   var campaignName = "crown_journal_launch";
   var trackEvent = function (eventName, params) {
     if (typeof window.gtag !== "function") {
@@ -88,9 +95,21 @@
 
   document.querySelectorAll("[data-track-nav]").forEach(function (link) {
     link.addEventListener("click", function () {
-      trackEvent("article_anchor_click", {
+      trackEvent(pageType === "home" ? "journal_nav_click" : "article_anchor_click", {
         event_category: "navigation",
         link_name: link.getAttribute("data-track-nav"),
+        page_type: pageType,
+        transport_type: "beacon"
+      });
+    });
+  });
+
+  document.querySelectorAll("[data-track-article-card]").forEach(function (link) {
+    link.addEventListener("click", function () {
+      trackEvent("journal_article_click", {
+        event_category: "journal_home",
+        link_name: link.getAttribute("data-track-article-card"),
+        link_url: link.href || canonicalUrl,
         transport_type: "beacon"
       });
     });
