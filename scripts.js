@@ -124,12 +124,19 @@
     var listenToggle = listenPanel.querySelector("[data-listen-toggle]");
     var listenStop = listenPanel.querySelector("[data-listen-stop]");
     var listenStatus = listenPanel.querySelector("[data-listen-status]");
-    var speech = window.speechSynthesis;
+    var audioSources = (listenPanel.getAttribute("data-audio-playlist") || "")
+      .split(",")
+      .map(function (source) {
+        return source.trim();
+      })
+      .filter(Boolean);
+    var readyStatus = audioSources.length ? "New York narration ready" : "Browser narration ready";
     var readerState = {
       chunks: [],
       index: 0,
       paused: false,
       speaking: false,
+      audio: null,
       utterance: null
     };
 
@@ -155,6 +162,20 @@
         listenToggle.textContent = "Listen";
         listenToggle.setAttribute("aria-pressed", "false");
         listenStop.disabled = true;
+      }
+    };
+
+    var stopCurrentAudio = function (resetTime) {
+      if (!readerState.audio) {
+        return;
+      }
+      readerState.audio.pause();
+      if (resetTime) {
+        try {
+          readerState.audio.currentTime = 0;
+        } catch (error) {
+          // Some browsers block currentTime resets before metadata is loaded.
+        }
       }
     };
 
@@ -194,21 +215,55 @@
     };
 
     var resetReader = function (status) {
+      stopCurrentAudio(true);
       readerState.paused = false;
       readerState.speaking = false;
       readerState.utterance = null;
       setReaderButtons("idle");
-      setListenStatus(status || "Browser narration ready");
+      setListenStatus(status || readyStatus);
     };
 
-    var speakNextChunk = function () {
+    var completeReader = function (mode) {
+      trackEvent("listen_article_complete", {
+        event_category: "audio_reader",
+        mode: mode,
+        transport_type: "beacon"
+      });
+      readerState.index = 0;
+      resetReader("Finished");
+    };
+
+    var playNextAudioSegment = function () {
+      if (!readerState.speaking || readerState.index >= audioSources.length) {
+        completeReader("pre_recorded");
+        return;
+      }
+
+      stopCurrentAudio(false);
+      var audio = new Audio(audioSources[readerState.index]);
+      readerState.audio = audio;
+      audio.preload = "auto";
+      audio.addEventListener("ended", function () {
+        if (!readerState.speaking) {
+          return;
+        }
+        readerState.index += 1;
+        playNextAudioSegment();
+      });
+      audio.addEventListener("error", function () {
+        resetReader("Audio file unavailable");
+      });
+
+      setReaderButtons("speaking");
+      setListenStatus("Listening " + (readerState.index + 1) + " of " + audioSources.length);
+      audio.play().catch(function () {
+        resetReader("Tap Listen to start audio");
+      });
+    };
+
+    var speakNextChunk = function (speech) {
       if (!readerState.speaking || readerState.index >= readerState.chunks.length) {
-        trackEvent("listen_article_complete", {
-          event_category: "audio_reader",
-          transport_type: "beacon"
-        });
-        readerState.index = 0;
-        resetReader("Finished");
+        completeReader("browser_speech");
         return;
       }
 
@@ -221,7 +276,7 @@
           return;
         }
         readerState.index += 1;
-        speakNextChunk();
+        speakNextChunk(speech);
       };
       utterance.onerror = function () {
         resetReader("Audio reader unavailable in this browser");
@@ -232,52 +287,49 @@
       speech.speak(utterance);
     };
 
-    if (!speech || typeof SpeechSynthesisUtterance === "undefined") {
-      setListenStatus("Audio reader unavailable in this browser");
-      if (listenToggle) {
-        listenToggle.disabled = true;
-      }
-    } else if (listenToggle && listenStop) {
+    if (audioSources.length && listenToggle && listenStop) {
       listenToggle.addEventListener("click", function () {
         if (readerState.speaking && !readerState.paused) {
-          speech.pause();
+          stopCurrentAudio(false);
           readerState.paused = true;
           setReaderButtons("paused");
           setListenStatus("Paused");
           trackEvent("listen_article_pause", {
             event_category: "audio_reader",
+            mode: "pre_recorded",
             transport_type: "beacon"
           });
           return;
         }
 
         if (readerState.speaking && readerState.paused) {
-          speech.resume();
-          readerState.paused = false;
-          setReaderButtons("speaking");
-          setListenStatus("Listening " + (readerState.index + 1) + " of " + readerState.chunks.length);
+          var currentAudio = readerState.audio;
+          var resumePlayback = currentAudio ? currentAudio.play() : Promise.resolve();
+          resumePlayback.then(function () {
+            readerState.paused = false;
+            setReaderButtons("speaking");
+            setListenStatus("Listening " + (readerState.index + 1) + " of " + audioSources.length);
+          }).catch(function () {
+            resetReader("Tap Listen to start audio");
+          });
           trackEvent("listen_article_resume", {
             event_category: "audio_reader",
+            mode: "pre_recorded",
             transport_type: "beacon"
           });
           return;
         }
 
-        readerState.chunks = getArticleChunks();
-        if (!readerState.chunks.length) {
-          setListenStatus("No article text found");
-          return;
-        }
-        speech.cancel();
         readerState.index = 0;
         readerState.paused = false;
         readerState.speaking = true;
         trackEvent("listen_article_start", {
           event_category: "audio_reader",
-          article_chunks: readerState.chunks.length,
+          mode: "pre_recorded",
+          audio_segments: audioSources.length,
           transport_type: "beacon"
         });
-        speakNextChunk();
+        playNextAudioSegment();
       });
 
       listenStop.addEventListener("click", function () {
@@ -286,18 +338,96 @@
         }
         readerState.speaking = false;
         readerState.paused = false;
-        speech.cancel();
+        stopCurrentAudio(true);
         readerState.index = 0;
         resetReader("Stopped");
         trackEvent("listen_article_stop", {
           event_category: "audio_reader",
+          mode: "pre_recorded",
           transport_type: "beacon"
         });
       });
 
       window.addEventListener("beforeunload", function () {
-        speech.cancel();
+        stopCurrentAudio(false);
       });
+    } else {
+      var speech = window.speechSynthesis;
+      if (!speech || typeof SpeechSynthesisUtterance === "undefined") {
+        setListenStatus("Audio reader unavailable in this browser");
+        if (listenToggle) {
+          listenToggle.disabled = true;
+        }
+      } else if (listenToggle && listenStop) {
+        listenToggle.addEventListener("click", function () {
+          if (readerState.speaking && !readerState.paused) {
+            speech.pause();
+            readerState.paused = true;
+            setReaderButtons("paused");
+            setListenStatus("Paused");
+            trackEvent("listen_article_pause", {
+              event_category: "audio_reader",
+              mode: "browser_speech",
+              transport_type: "beacon"
+            });
+            return;
+          }
+
+          if (readerState.speaking && readerState.paused) {
+            speech.resume();
+            readerState.paused = false;
+            setReaderButtons("speaking");
+            setListenStatus("Listening " + (readerState.index + 1) + " of " + readerState.chunks.length);
+            trackEvent("listen_article_resume", {
+              event_category: "audio_reader",
+              mode: "browser_speech",
+              transport_type: "beacon"
+            });
+            return;
+          }
+
+          readerState.chunks = getArticleChunks();
+          if (!readerState.chunks.length) {
+            setListenStatus("No article text found");
+            return;
+          }
+          speech.cancel();
+          readerState.index = 0;
+          readerState.paused = false;
+          readerState.speaking = true;
+          trackEvent("listen_article_start", {
+            event_category: "audio_reader",
+            mode: "browser_speech",
+            article_chunks: readerState.chunks.length,
+            transport_type: "beacon"
+          });
+          speakNextChunk(speech);
+        });
+
+        listenStop.addEventListener("click", function () {
+          if (!readerState.speaking && !readerState.paused) {
+            return;
+          }
+          readerState.speaking = false;
+          readerState.paused = false;
+          speech.cancel();
+          readerState.index = 0;
+          resetReader("Stopped");
+          trackEvent("listen_article_stop", {
+            event_category: "audio_reader",
+            mode: "browser_speech",
+            transport_type: "beacon"
+          });
+        });
+
+        window.addEventListener("beforeunload", function () {
+          speech.cancel();
+        });
+      }
+    }
+
+    if (audioSources.length) {
+      setListenStatus(readyStatus);
     }
   }
 
