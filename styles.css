@@ -974,6 +974,41 @@ article strong {
     display: none;
   }
 
+  h1 {
+    font-size: clamp(3.2rem, 15vw, 4.45rem);
+    line-height: 0.82;
+  }
+
+  .home-feature h2,
+  .essay-card-copy h3 {
+    font-size: clamp(2.1rem, 10.4vw, 3.35rem);
+    line-height: 0.9;
+  }
+
+  .home-copy .dek {
+    font-size: clamp(1.15rem, 6vw, 1.55rem);
+  }
+
+  .home-hero-inner,
+  .home-copy,
+  .home-feature {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .home-copy,
+  .home-copy .hero-actions,
+  .home-feature {
+    width: min(100%, 354px);
+  }
+
+  .home-copy .dek,
+  .home-feature h2,
+  .home-feature p {
+    max-width: 100%;
+    overflow-wrap: break-word;
+  }
+
   .button {
     width: 100%;
   }
