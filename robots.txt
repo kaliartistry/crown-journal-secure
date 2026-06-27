@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://kaliartistry.github.io/crown-journal-secure/sitemap.xml
