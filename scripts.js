@@ -131,6 +131,7 @@
         return source.trim();
       })
       .filter(Boolean);
+    var requestedChapterCount = parseInt(listenPanel.getAttribute("data-audio-chapter-count"), 10);
     var readyStatus = audioSources.length ? "New York narration ready" : "Browser narration ready";
     var readerState = {
       chunks: [],
@@ -141,6 +142,21 @@
       utterance: null
     };
     var segmentButtons = [];
+    var chapterCount = audioSources.length
+      ? Math.min(audioSources.length, Math.max(1, isNaN(requestedChapterCount) ? audioSources.length : requestedChapterCount))
+      : 0;
+    var audioChapters = [];
+
+    for (var chapterIndex = 0; chapterIndex < chapterCount; chapterIndex += 1) {
+      var chapterStart = Math.floor((chapterIndex * audioSources.length) / chapterCount);
+      var nextChapterStart = chapterIndex === chapterCount - 1
+        ? audioSources.length
+        : Math.floor(((chapterIndex + 1) * audioSources.length) / chapterCount);
+      audioChapters.push({
+        start: chapterStart,
+        end: Math.max(chapterStart, nextChapterStart - 1)
+      });
+    }
 
     var setListenStatus = function (label) {
       if (listenStatus) {
@@ -167,9 +183,30 @@
       }
     };
 
+    var getChapterIndex = function (audioIndex) {
+      if (!audioChapters.length || audioIndex < 0) {
+        return -1;
+      }
+      for (var index = 0; index < audioChapters.length; index += 1) {
+        if (audioIndex >= audioChapters[index].start && audioIndex <= audioChapters[index].end) {
+          return index;
+        }
+      }
+      return audioChapters.length - 1;
+    };
+
+    var getAudioProgressLabel = function () {
+      if (audioChapters.length && audioChapters.length < audioSources.length) {
+        var activeChapter = Math.max(0, getChapterIndex(readerState.index));
+        return "Listening chapter " + (activeChapter + 1) + " of " + audioChapters.length;
+      }
+      return "Listening " + (readerState.index + 1) + " of " + audioSources.length;
+    };
+
     var setActiveSegment = function (activeIndex) {
+      var activeChapter = getChapterIndex(activeIndex);
       segmentButtons.forEach(function (button, index) {
-        var isActive = index === activeIndex;
+        var isActive = index === activeChapter;
         button.classList.toggle("is-active", isActive);
         if (isActive) {
           button.setAttribute("aria-current", "true");
@@ -187,27 +224,35 @@
       listenSegments.textContent = "";
       var label = document.createElement("span");
       label.className = "listen-segments-label";
-      label.textContent = "Parts";
+      label.textContent = audioChapters.length < audioSources.length ? "Chapters" : "Parts";
 
       var list = document.createElement("div");
       list.className = "listen-segment-list";
 
-      audioSources.forEach(function (_source, index) {
+      audioChapters.forEach(function (chapter, index) {
         var button = document.createElement("button");
         button.className = "listen-segment";
         button.type = "button";
         button.textContent = String(index + 1);
-        button.setAttribute("aria-label", "Play part " + (index + 1) + " of " + audioSources.length);
+        button.setAttribute(
+          "aria-label",
+          (audioChapters.length < audioSources.length ? "Play chapter " : "Play part ") +
+            (index + 1) +
+            " of " +
+            audioChapters.length
+        );
         button.addEventListener("click", function () {
-          readerState.index = index;
+          readerState.index = chapter.start;
           readerState.paused = false;
           readerState.speaking = true;
           stopCurrentAudio(true);
-          setActiveSegment(index);
+          setActiveSegment(chapter.start);
           trackEvent("listen_article_segment_select", {
             event_category: "audio_reader",
             mode: "pre_recorded",
-            audio_segment: index + 1,
+            audio_chapter: index + 1,
+            audio_start_segment: chapter.start + 1,
+            audio_end_segment: chapter.end + 1,
             transport_type: "beacon"
           });
           playNextAudioSegment();
@@ -302,7 +347,7 @@
 
       setReaderButtons("speaking");
       setActiveSegment(readerState.index);
-      setListenStatus("Listening " + (readerState.index + 1) + " of " + audioSources.length);
+      setListenStatus(getAudioProgressLabel());
       audio.play().catch(function () {
         resetReader("Tap Listen to start audio");
       });
@@ -357,7 +402,7 @@
           resumePlayback.then(function () {
             readerState.paused = false;
             setReaderButtons("speaking");
-            setListenStatus("Listening " + (readerState.index + 1) + " of " + audioSources.length);
+            setListenStatus(getAudioProgressLabel());
           }).catch(function () {
             resetReader("Tap Listen to start audio");
           });

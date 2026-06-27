@@ -754,7 +754,7 @@ article strong {
 
   .listen-segment-list {
     display: grid;
-    grid-template-columns: repeat(5, minmax(32px, 1fr));
+    grid-template-columns: repeat(6, minmax(32px, 1fr));
     width: 100%;
     max-width: none;
   }
