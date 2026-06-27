@@ -33,7 +33,7 @@ http://localhost:4173/heavy-is-the-crown-brunson-wanted-the-smoke/
 
 ## Editorial Credit Note
 
-Daoud Mansour should not be credited publicly until permission is confirmed. If approved, the recommended placement is a byline-area note:
+The public article includes this byline-area note:
 
 ```text
 Editorial feedback by Daoud Mansour

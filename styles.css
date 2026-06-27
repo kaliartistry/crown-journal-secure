@@ -209,6 +209,15 @@ h1 {
   background: var(--orange);
 }
 
+.editorial-credit {
+  margin: 12px 0 0;
+  color: rgba(247, 244, 238, 0.68);
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
 .hero-actions,
 .share-row {
   margin-top: 26px;
